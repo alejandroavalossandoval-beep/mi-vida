@@ -206,8 +206,9 @@
     const cat = cats.find((c) => c.id === t.categoria);
     const meta = [];
     if (t.fecha) meta.push(h('span', { class: 'meta-fecha' + (atrasada ? ' rojo' : '') }, (atrasada ? 'Atrasada · ' : '') + F.relativa(t.fecha)));
-    if (t.prioridad) meta.push(h('span', { class: 'prioridad p-' + t.prioridad }, PRIORIDADES.find((p) => p.id === t.prioridad).texto));
     if (cat) meta.push(h('span', { class: 'etiqueta-cat', style: { '--cat': cat.color } }, cat.nombre));
+    // Prioridad como en Recordatorios: !!! alta, !! media, ! baja
+    const marca = t.prioridad ? h('span', { class: 'excl', 'aria-label': 'Prioridad ' + t.prioridad }, { alta: '!!! ', media: '!! ', baja: '! ' }[t.prioridad]) : null;
 
     const check = h('button', {
       type: 'button',
@@ -225,24 +226,29 @@
     const fila = h('div', { class: 'item item-tarea' + (atrasada ? ' atrasada' : '') + (t.hecha ? ' esta-hecha' : '') },
       check,
       h('div', { class: 'item-cuerpo' },
-        h('p', { class: 'item-titulo' }, t.titulo),
+        h('p', { class: 'item-titulo' }, marca, t.titulo),
         meta.length ? h('div', { class: 'item-meta' }, meta) : null),
-      h('button', { type: 'button', class: 'btn-icono', 'aria-label': 'Opciones de la tarea', onclick: () => menuTarea(t, refrescar) }, UI.icono('puntos'))
+      h('button', { type: 'button', class: 'btn-icono btn-info', 'aria-label': 'Opciones de la tarea', onclick: () => menuTarea(t, refrescar) }, UI.icono('puntos'))
     );
     UI.pulsacionLarga(fila, () => menuTarea(t, refrescar));
-    return fila;
+    return UI.deslizable(fila, [
+      { texto: 'Editar', icono: 'lapiz', clase: 'gris', fn: () => editarTarea(t, refrescar) },
+      { texto: 'Borrar', icono: 'basura', clase: 'rojo', fn: () => borrarTarea(t, refrescar) }
+    ]);
+  }
+
+  async function borrarTarea(t, refrescar) {
+    if (await UI.confirmar('Se borrará "' + t.titulo + '".', { titulo: '¿Borrar tarea?', textoSi: 'Borrar', peligro: true })) {
+      await Datos.borrar('tareas', t.id);
+      UI.aviso('Tarea borrada', { deshacer: async () => { await Datos.guardar('tareas', t); refrescar(); } });
+      refrescar();
+    }
   }
 
   function menuTarea(t, refrescar) {
     UI.acciones(t.titulo, [
-      { texto: 'Editar', icono: 'lapiz', fn: () => editarTarea(t, refrescar) },
-      { texto: 'Borrar', icono: 'basura', peligro: true, fn: async () => {
-        if (await UI.confirmar('Se borrará "' + t.titulo + '".', { titulo: '¿Borrar tarea?', textoSi: 'Borrar', peligro: true })) {
-          await Datos.borrar('tareas', t.id);
-          UI.aviso('Tarea borrada', { deshacer: async () => { await Datos.guardar('tareas', t); refrescar(); } });
-          refrescar();
-        }
-      } }
+      { texto: 'Editar', fn: () => editarTarea(t, refrescar) },
+      { texto: 'Borrar', peligro: true, fn: () => borrarTarea(t, refrescar) }
     ]);
   }
 
@@ -359,7 +365,7 @@
     }
 
     zona.appendChild(h('div', { class: 'tarjeta tarjeta-linea' }, linea));
-    zona.appendChild(h('button', { type: 'button', class: 'fab', 'aria-label': 'Nuevo evento', onclick: () => editarEvento(null, dia) }, UI.icono('mas'), h('span', null, 'Evento')));
+    zona.appendChild(h('button', { type: 'button', class: 'fab', 'aria-label': 'Nuevo evento', onclick: () => editarEvento(null, dia) }, UI.icono('mas'), h('span', null, 'Nuevo evento')));
 
     // Llevar la vista a la hora actual o al primer evento
     requestAnimationFrame(() => {

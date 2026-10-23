@@ -299,12 +299,12 @@
       zona.appendChild(UI.vacio('📋', 'Crea tu primera rutina', 'Ponle nombre, elige ejercicios de la biblioteca y asígnale días.', { texto: 'Crear rutina', fn: () => editarRutina(null) }));
       return;
     }
-    zona.appendChild(h('div', { class: 'lista' }, lista.map((r) => h('button', { type: 'button', class: 'tarjeta tarjeta-rutina', onclick: () => editarRutina(r) },
+    zona.appendChild(h('div', { class: 'lista-tarjetas' }, lista.map((r) => h('button', { type: 'button', class: 'tarjeta tarjeta-rutina', onclick: () => editarRutina(r) },
       h('div', { class: 'tr-cabeza' }, h('h3', null, r.nombre), UI.icono('lapiz')),
       h('div', { class: 'dias-mini' }, F.DIAS_CORTOS.map((d, i) => h('span', { class: (r.dias || []).includes(i + 1) ? 'activo' : '' }, d[0]))),
       h('ul', { class: 'tr-ejercicios' }, r.ejercicios.map((e) => h('li', null, h('span', null, e.nombre), h('span', { class: 'texto-suave' }, e.series + '×' + e.reps + (e.peso ? ' · ' + F.kg(e.peso) : '')))))
     ))));
-    zona.appendChild(h('button', { type: 'button', class: 'fab', 'aria-label': 'Nueva rutina', onclick: () => editarRutina(null) }, UI.icono('mas'), h('span', null, 'Rutina')));
+    zona.appendChild(h('button', { type: 'button', class: 'fab', 'aria-label': 'Nueva rutina', onclick: () => editarRutina(null) }, UI.icono('mas'), h('span', null, 'Nueva rutina')));
   }
 
   function editarRutina(rutina) {

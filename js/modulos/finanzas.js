@@ -166,7 +166,7 @@
     zona.appendChild(h('div', { class: 'dos-columnas filtros-mov' }, filtro, h('div', { class: 'buscador' }, UI.icono('buscar'), buscador)));
     zona.appendChild(h('button', { type: 'button', class: 'btn-texto', onclick: () => gestionarCategorias() }, '⚙️ Editar categorías'));
 
-    const lista = h('div', { class: 'lista' });
+    const lista = h('div', { class: 'lista-grupos' });
     zona.appendChild(lista);
 
     function pintar() {
@@ -189,7 +189,7 @@
       });
       lista.replaceChildren(...grupos.map((g) => h('div', { class: 'grupo-dia' },
         h('h3', { class: 'titulo-grupo' }, F.relativa(g.fecha) + (F.relativa(g.fecha) !== F.mostrar(g.fecha) ? ' · ' + F.mostrar(g.fecha) : '')),
-        g.items.map((m) => filaMovimiento(m, cats)))));
+        h('div', { class: 'lista' }, g.items.map((m) => filaMovimiento(m, cats))))));
     }
     pintar();
   }
@@ -205,19 +205,24 @@
       h('button', { type: 'button', class: 'btn-icono', 'aria-label': 'Opciones', onclick: () => menuMovimiento(m, cats) }, UI.icono('puntos'))
     );
     UI.pulsacionLarga(fila, () => menuMovimiento(m, cats));
-    return fila;
+    return UI.deslizable(fila, [
+      { texto: 'Editar', icono: 'lapiz', clase: 'gris', fn: () => editarMovimiento(m, cats) },
+      { texto: 'Borrar', icono: 'basura', clase: 'rojo', fn: () => borrarMovimiento(m) }
+    ]);
+  }
+
+  async function borrarMovimiento(m) {
+    if (await UI.confirmar('Se borrará este movimiento de ' + F.dinero(m.monto) + '.', { titulo: '¿Borrar?', textoSi: 'Borrar', peligro: true })) {
+      await Datos.borrar('movimientos', m.id);
+      UI.aviso('Movimiento borrado', { deshacer: async () => { await Datos.guardar('movimientos', m); MV.refrescar(); } });
+      MV.refrescar();
+    }
   }
 
   function menuMovimiento(m, cats) {
     UI.acciones(buscarCat(cats, m.categoria).nombre + ' · ' + F.dinero(m.monto), [
-      { texto: 'Editar', icono: 'lapiz', fn: () => editarMovimiento(m, cats) },
-      { texto: 'Borrar', icono: 'basura', peligro: true, fn: async () => {
-        if (await UI.confirmar('Se borrará este movimiento de ' + F.dinero(m.monto) + '.', { titulo: '¿Borrar?', textoSi: 'Borrar', peligro: true })) {
-          await Datos.borrar('movimientos', m.id);
-          UI.aviso('Movimiento borrado', { deshacer: async () => { await Datos.guardar('movimientos', m); MV.refrescar(); } });
-          MV.refrescar();
-        }
-      } }
+      { texto: 'Editar', fn: () => editarMovimiento(m, cats) },
+      { texto: 'Borrar', peligro: true, fn: () => borrarMovimiento(m) }
     ]);
   }
 
@@ -259,7 +264,7 @@
       const cats = await categorias();
       cuerpo.replaceChildren(...['gasto', 'ingreso'].map((tipo) => h('div', { class: 'bloque-cats' },
         h('h3', { class: 'titulo-grupo' }, tipo === 'gasto' ? 'De gasto' : 'De ingreso'),
-        cats.filter((c) => c.tipo === tipo).map((c) => h('div', { class: 'item item-compacto' },
+        h('div', { class: 'lista' }, cats.filter((c) => c.tipo === tipo).map((c) => h('div', { class: 'item item-compacto' },
           h('span', { class: 'mov-emoji', style: { '--cat': c.color } }, c.emoji || '🏷️'),
           h('div', { class: 'item-cuerpo' }, h('p', { class: 'item-titulo' }, c.nombre)),
           h('button', { type: 'button', class: 'btn-icono', 'aria-label': 'Renombrar ' + c.nombre, onclick: async () => {
@@ -272,7 +277,7 @@
               await Datos.borrar('presupuestos', c.id);
               pintar();
             }
-          } }, UI.icono('basura')))),
+          } }, UI.icono('basura'))))),
         h('button', { type: 'button', class: 'btn btn-secundario btn-ancho', onclick: async () => {
           const nombre = await UI.preguntar('Nueva categoría de ' + tipo, { placeholder: 'Nombre', ayuda: 'Puedes empezar con un emoji, por ejemplo: 🐶 Mascota' });
           if (!nombre) return;
@@ -399,11 +404,14 @@
         h('div', { class: 'pago-lado' },
           h('strong', null, F.dinero(x.p.monto)),
           h('button', { type: 'button', class: 'btn btn-chico btn-secundario', onclick: () => marcarPagado(x.p, x.vence, cats) }, 'Pagado')),
-        h('button', { type: 'button', class: 'btn-icono', 'aria-label': 'Opciones', onclick: () => menuPago(x.p, cats) }, UI.icono('puntos')));
+        h('button', { type: 'button', class: 'btn-icono btn-info', 'aria-label': 'Opciones', onclick: () => menuPago(x.p, cats) }, UI.icono('puntos')));
       UI.pulsacionLarga(fila, () => menuPago(x.p, cats));
-      return fila;
+      return UI.deslizable(fila, [
+        { texto: 'Editar', icono: 'lapiz', clase: 'gris', fn: () => editarPago(x.p, cats) },
+        { texto: 'Pagado', icono: 'check', clase: 'verde', fn: () => marcarPagado(x.p, x.vence, cats) }
+      ]);
     })));
-    zona.appendChild(h('button', { type: 'button', class: 'fab', 'aria-label': 'Nuevo pago fijo', onclick: () => editarPago(null, cats) }, UI.icono('mas'), h('span', null, 'Pago')));
+    zona.appendChild(h('button', { type: 'button', class: 'fab', 'aria-label': 'Nuevo pago fijo', onclick: () => editarPago(null, cats) }, UI.icono('mas'), h('span', null, 'Nuevo pago')));
   }
 
   function textoVence(fecha) {
@@ -432,8 +440,8 @@
 
   function menuPago(p, cats) {
     UI.acciones(p.nombre, [
-      { texto: 'Editar', icono: 'lapiz', fn: () => editarPago(p, cats) },
-      { texto: 'Borrar', icono: 'basura', peligro: true, fn: async () => {
+      { texto: 'Editar', fn: () => editarPago(p, cats) },
+      { texto: 'Borrar', peligro: true, fn: async () => {
         if (await UI.confirmar('Se borrará el pago fijo "' + p.nombre + '". Los gastos ya registrados se mantienen.', { titulo: '¿Borrar pago fijo?', textoSi: 'Borrar', peligro: true })) {
           await Datos.borrar('pagos', p.id);
           UI.aviso('Pago fijo borrado', { deshacer: async () => { await Datos.guardar('pagos', p); MV.refrescar(); } });
@@ -521,7 +529,7 @@
       return;
     }
     metas.sort((a, b) => calculoMeta(b).pct - calculoMeta(a).pct);
-    zona.appendChild(h('div', { class: 'lista' }, metas.map((meta) => {
+    zona.appendChild(h('div', { class: 'lista-tarjetas' }, metas.map((meta) => {
       const c = calculoMeta(meta);
       const lograda = c.falta === 0;
       const tarjeta = h('article', { class: 'tarjeta meta' + (lograda ? ' lograda' : '') },
@@ -539,7 +547,7 @@
       );
       return tarjeta;
     })));
-    zona.appendChild(h('button', { type: 'button', class: 'fab', 'aria-label': 'Nueva meta', onclick: () => editarMeta(null) }, UI.icono('mas'), h('span', null, 'Meta')));
+    zona.appendChild(h('button', { type: 'button', class: 'fab', 'aria-label': 'Nueva meta', onclick: () => editarMeta(null) }, UI.icono('mas'), h('span', null, 'Nueva meta')));
   }
 
   function aportar(meta) {

@@ -100,7 +100,7 @@
     const docs = await Datos.listar('documentos');
     if (!docs.length) {
       zona.appendChild(UI.vacio('🗂️', 'Tu papeleo, ordenado', 'Guarda aquí el permiso de circulación, boletas con garantía, certificados… con foto y fecha de vencimiento.', { texto: 'Agregar documento', fn: () => editarDocumento(null) }));
-      zona.appendChild(h('button', { type: 'button', class: 'fab', 'aria-label': 'Nuevo documento', onclick: () => editarDocumento(null) }, UI.icono('mas'), h('span', null, 'Documento')));
+      zona.appendChild(h('button', { type: 'button', class: 'fab', 'aria-label': 'Nuevo documento', onclick: () => editarDocumento(null) }, UI.icono('mas'), h('span', null, 'Nuevo documento')));
       return;
     }
     const buscador = h('input', { class: 'campo', type: 'search', placeholder: 'Buscar por título, etiqueta o nota', value: estado.busqueda, 'aria-label': 'Buscar documentos' });
@@ -116,7 +116,7 @@
     zona.appendChild(h('div', { class: 'dos-columnas filtros-mov' }, selTipo, selEtiqueta));
     const lista = h('div', { class: 'rejilla-docs' });
     zona.appendChild(lista);
-    zona.appendChild(h('button', { type: 'button', class: 'fab', 'aria-label': 'Nuevo documento', onclick: () => editarDocumento(null) }, UI.icono('mas'), h('span', null, 'Documento')));
+    zona.appendChild(h('button', { type: 'button', class: 'fab', 'aria-label': 'Nuevo documento', onclick: () => editarDocumento(null) }, UI.icono('mas'), h('span', null, 'Nuevo documento')));
 
     async function pintar() {
       const q = normalizar(estado.busqueda);

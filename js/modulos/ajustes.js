@@ -101,6 +101,9 @@
       const tema = await Datos.ajuste('tema', 'auto');
       await Datos.guardarTema(tema);
       MV.aplicarTema(tema);
+      const acento = await Datos.ajuste('acento', 'azul');
+      await Datos.guardarAcento(acento);
+      MV.aplicarAcento(acento);
       UI.aviso('✅ Datos restaurados', { duracion: 4000 });
       MV.refrescar();
     } catch (e) {
@@ -117,60 +120,96 @@
     await Datos.borrarTodo();
     await Datos.guardarAjuste('primerUso', Date.now());
     MV.aplicarTema('auto');
+    MV.aplicarAcento('azul');
     UI.aviso('Listo, la app quedó como nueva');
     MV.ir('inicio');
+  }
+
+  const ACENTOS = [
+    { id: 'azul', nombre: 'Azul' }, { id: 'cobre', nombre: 'Cobre' }, { id: 'verde', nombre: 'Verde' },
+    { id: 'morado', nombre: 'Morado' }, { id: 'rosado', nombre: 'Rosado' }, { id: 'naranjo', nombre: 'Naranjo' },
+    { id: 'grafito', nombre: 'Grafito' }
+  ];
+
+  // Sección agrupada al estilo Ajustes del iPhone: título arriba, filas en una tarjeta, nota abajo
+  function seccion(titulo, filas, pie) {
+    return h('section', { class: 'grupo-ajustes' },
+      titulo ? h('h2', { class: 'ga-titulo' }, titulo) : null,
+      h('div', { class: 'lista' }, filas),
+      pie ? h('p', { class: 'ga-pie' }, pie) : null);
+  }
+
+  function filaBoton(icono, color, texto, fn, peligro) {
+    return h('button', { type: 'button', class: 'item ga-boton' + (peligro ? ' peligro' : ''), onclick: fn },
+      h('span', { class: 'cuadro-icono chico', style: { background: color }, 'aria-hidden': 'true' }, UI.icono(icono)),
+      h('span', { class: 'item-cuerpo' }, texto),
+      peligro ? null : UI.icono('adelante', 'flecha-fila'));
   }
 
   async function render(cont) {
     const nombre = await Datos.ajuste('nombre', '');
     const tema = Datos.temaGuardado();
+    const acento = Datos.acentoGuardado();
     const ultimo = await Datos.ajuste('ultimoRespaldo');
     const espacio = await Datos.espacioUsado();
 
-    cont.appendChild(h('header', { class: 'cabecera' },
-      h('a', { href: '#/inicio', class: 'btn-icono', 'aria-label': 'Volver a inicio' }, UI.icono('atras')),
-      h('h1', null, 'Ajustes')));
+    cont.appendChild(UI.cabecera('Ajustes'));
 
-    // Nombre
-    const campoNombre = h('input', { class: 'campo', type: 'text', value: nombre, placeholder: 'Tu nombre', autocomplete: 'given-name', maxlength: 30 });
-    cont.appendChild(h('section', { class: 'tarjeta' },
-      h('h2', null, '👋 Tu nombre'),
-      h('p', { class: 'ayuda' }, 'Se usa para saludarte. Queda guardado solo en este dispositivo.'),
-      h('form', { class: 'fila-entrada', onsubmit: async (e) => {
-        e.preventDefault();
-        await Datos.guardarAjuste('nombre', campoNombre.value.trim());
-        campoNombre.blur();
-        UI.aviso(campoNombre.value.trim() ? '¡Hola, ' + campoNombre.value.trim() + '!' : 'Nombre borrado');
-      } }, campoNombre, h('button', { type: 'submit', class: 'btn' }, 'Guardar'))));
+    // Perfil
+    const campoNombre = h('input', { class: 'campo-fila', type: 'text', value: nombre, placeholder: 'Tu nombre', autocomplete: 'given-name', maxlength: 30, enterkeyhint: 'done', 'aria-label': 'Tu nombre' });
+    const guardarNombre = async () => {
+      const v = campoNombre.value.trim();
+      if (v === (await Datos.ajuste('nombre', ''))) return;
+      await Datos.guardarAjuste('nombre', v);
+      UI.aviso(v ? '¡Hola, ' + v + '!' : 'Nombre borrado');
+    };
+    campoNombre.addEventListener('change', guardarNombre);
+    campoNombre.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); campoNombre.blur(); } });
+    cont.appendChild(seccion('Perfil', [
+      h('label', { class: 'item ga-fila' }, h('span', null, 'Nombre'), campoNombre)
+    ], 'Se usa para saludarte. Queda guardado solo en este dispositivo.'));
 
-    // Tema
-    cont.appendChild(h('section', { class: 'tarjeta' },
-      h('h2', null, '🎨 Tema'),
-      UI.chips([{ id: 'auto', texto: 'Automático' }, { id: 'claro', texto: 'Claro' }, { id: 'oscuro', texto: 'Oscuro' }], tema, async (v) => {
-        await Datos.guardarTema(v);
-        MV.aplicarTema(v);
-      }, 'chips-ancho'),
-      h('p', { class: 'ayuda' }, 'Automático usa el mismo modo que tu celular.')));
+    // Apariencia
+    const muestras = h('div', { class: 'muestras', role: 'radiogroup', 'aria-label': 'Color de la app' }, ACENTOS.map((a) => h('button', {
+      type: 'button', role: 'radio', class: 'muestra acento-' + a.id + (a.id === acento ? ' activa' : ''),
+      'aria-checked': String(a.id === acento), 'aria-label': a.nombre, title: a.nombre,
+      onclick: async (e) => {
+        muestras.querySelectorAll('.muestra').forEach((m) => { m.classList.remove('activa'); m.setAttribute('aria-checked', 'false'); });
+        e.currentTarget.classList.add('activa');
+        e.currentTarget.setAttribute('aria-checked', 'true');
+        MV.aplicarAcento(a.id);
+        await Datos.guardarAcento(a.id);
+      }
+    })));
+    cont.appendChild(seccion('Apariencia', [
+      h('div', { class: 'item ga-bloque' },
+        UI.subpestanas([{ id: 'auto', texto: 'Automático' }, { id: 'claro', texto: 'Claro' }, { id: 'oscuro', texto: 'Oscuro' }], tema, async (v) => {
+          await Datos.guardarTema(v);
+          MV.aplicarTema(v);
+          MV.refrescar();
+        })),
+      h('div', { class: 'item ga-bloque' }, h('span', { class: 'etiqueta' }, 'Color de la app'), muestras)
+    ], 'Automático usa el mismo modo (claro u oscuro) que tu celular.'));
 
     // Respaldo
     const dias = ultimo ? Math.floor((Date.now() - ultimo) / 86400000) : null;
-    const btnDescargar = h('button', { type: 'button', class: 'btn btn-ancho', onclick: () => descargar(btnDescargar) }, UI.icono('descargar'), 'Descargar respaldo');
     const puedeCompartir = !!(navigator.canShare && navigator.canShare({ files: [new File(['{}'], 'x.json', { type: 'application/json' })] }));
-    const btnCompartir = puedeCompartir ? h('button', { type: 'button', class: 'btn btn-secundario btn-ancho', onclick: () => compartir(btnCompartir) }, '📤 Guardar en Drive / compartir') : null;
-    cont.appendChild(h('section', { class: 'tarjeta' },
-      h('h2', null, '💾 Respaldo'),
-      h('p', { class: 'ayuda' }, ultimo ? 'Último respaldo: ' + F.mostrar(F.isoDeMarca(ultimo)) + (dias ? ' (hace ' + F.plural(dias, 'día', 'días') + ')' : ' (hoy)') : 'Aún no haces ningún respaldo.'),
-      h('p', { class: 'ayuda' }, 'Tus datos viven solo en este celular. El respaldo es un archivo .json con todo (incluidas las fotos). Guárdalo en tu Google Drive, nunca en GitHub.'),
-      btnDescargar,
-      btnCompartir,
-      h('button', { type: 'button', class: 'btn btn-secundario btn-ancho', onclick: elegirRestauracion }, UI.icono('subir'), 'Restaurar respaldo')));
+    const filaDescargar = filaBoton('descargar', 'var(--sis-azul)', 'Descargar respaldo', () => descargar(filaDescargar.querySelector('.item-cuerpo')));
+    const filas = [filaDescargar];
+    if (puedeCompartir) {
+      const filaCompartir = filaBoton('subir', 'var(--sis-verde)', 'Guardar en Drive o Archivos', () => compartir(filaCompartir));
+      filas.push(filaCompartir);
+    }
+    filas.push(filaBoton('reloj', 'var(--sis-naranjo)', 'Restaurar respaldo', elegirRestauracion));
+    cont.appendChild(seccion('Respaldo', filas,
+      (ultimo ? 'Último respaldo: ' + F.mostrar(F.isoDeMarca(ultimo)) + (dias ? ' (hace ' + F.plural(dias, 'día', 'días') + ').' : ' (hoy).') : 'Aún no haces ningún respaldo.') +
+      ' Tus datos viven solo en este celular. Guarda el archivo en Google Drive o iCloud, nunca en GitHub.'));
 
-    // Almacenamiento y prueba
+    // Almacenamiento
     const resultadoPrueba = h('ol', { class: 'resultado-prueba' });
-    cont.appendChild(h('section', { class: 'tarjeta' },
-      h('h2', null, '📦 Almacenamiento'),
-      espacio ? h('p', { class: 'ayuda' }, 'Usando ' + tamano(espacio.usage || 0) + ' de espacio en este dispositivo.') : null,
-      h('button', { type: 'button', class: 'btn btn-secundario btn-ancho', onclick: async () => {
+    cont.appendChild(seccion('Almacenamiento', [
+      espacio ? h('div', { class: 'item ga-fila' }, h('span', null, 'Espacio usado'), h('span', { class: 'texto-suave' }, tamano(espacio.usage || 0))) : null,
+      filaBoton('check', 'var(--sis-gris)', 'Probar que se guardan los datos', async () => {
         resultadoPrueba.replaceChildren(h('li', null, 'Probando…'));
         try {
           const pasos = await Datos.probar();
@@ -178,17 +217,17 @@
         } catch (e) {
           resultadoPrueba.replaceChildren(h('li', { class: 'rojo' }, '❌ ' + e.message));
         }
-      } }, '🧪 Probar que se guardan los datos'),
-      resultadoPrueba));
+      })
+    ]));
+    cont.appendChild(resultadoPrueba);
 
-    // Zona peligrosa
-    cont.appendChild(h('section', { class: 'tarjeta zona-peligro' },
-      h('h2', null, '⚠️ Borrar todo'),
-      h('p', { class: 'ayuda' }, 'Deja la app como recién instalada. Pide confirmación dos veces.'),
-      h('button', { type: 'button', class: 'btn btn-peligro btn-ancho', onclick: borrarTodo }, UI.icono('basura'), 'Borrar todos los datos')));
+    // Borrar todo
+    cont.appendChild(seccion(null, [
+      h('button', { type: 'button', class: 'item ga-boton peligro centrado-texto', onclick: borrarTodo }, 'Borrar todos los datos')
+    ], 'Deja la app como recién instalada. Pide confirmación dos veces.'));
 
     cont.appendChild(h('p', { class: 'texto-suave centrado pie-ajustes' }, 'Mi Vida · tus datos nunca salen de este dispositivo'));
   }
 
-  MV.registrar({ id: 'ajustes', titulo: 'Ajustes', pestana: 'inicio', render });
+  MV.registrar({ id: 'ajustes', titulo: 'Ajustes', pestana: 'inicio', volver: { ruta: 'inicio', texto: 'Inicio' }, render });
 })();

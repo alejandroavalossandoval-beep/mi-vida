@@ -4,7 +4,7 @@
  * IMPORTANTE: cada vez que se suban cambios, sube el número de VERSION
  * para que el celular detecte la versión nueva y muestre el aviso "Actualizar".
  */
-const VERSION = 'v1.0.0';
+const VERSION = 'v1.1.0';
 const CACHE = 'mi-vida-' + VERSION;
 
 const ARCHIVOS = [

@@ -137,7 +137,12 @@
     reloj: '<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>',
     enlace: '<path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/>',
     descargar: '<path d="M12 4v11M7 10.5l5 5 5-5M5 20h14"/>',
-    subir: '<path d="M12 16V5M7 9.5l5-5 5 5M5 20h14"/>'
+    subir: '<path d="M12 16V5M7 9.5l5-5 5 5M5 20h14"/>',
+    // Íconos de cada módulo (van en blanco sobre un cuadrado de color, como en Ajustes del iPhone)
+    'm-panel': '<rect x="3.5" y="4.5" width="17" height="16" rx="2.5"/><path d="M3.5 9.5h17M8 2.5v4M16 2.5v4M8 14l2.5 2.5L16 12"/>',
+    'm-finanzas': '<rect x="2.5" y="6" width="19" height="13" rx="2.5"/><path d="M2.5 10.5h19M16.5 15h2"/>',
+    'm-entrenador': '<path d="M6.5 7v10M17.5 7v10M3.5 9.5v5M20.5 9.5v5M6.5 12h11"/>',
+    'm-cerebro': '<path d="M9 3.5a3 3 0 0 0-3 3 3 3 0 0 0-2.5 4.5A3.2 3.2 0 0 0 5 17a3 3 0 0 0 4 3.3V3.5zM15 3.5a3 3 0 0 1 3 3 3 3 0 0 1 2.5 4.5A3.2 3.2 0 0 1 19 17a3 3 0 0 1-4 3.3V3.5z"/>'
   };
   function icono(nombre, clase) {
     const span = document.createElement('span');
@@ -150,20 +155,38 @@
   const capa = () => document.getElementById('capa-modal');
   const pilaModales = [];
 
-  /** Hoja inferior (bottom sheet). Devuelve { cerrar, cuerpo }. */
+  /**
+   * Ventana tipo iOS. Devuelve { cerrar, cuerpo }.
+   * estilo: undefined (hoja que sube desde abajo), 'alerta' (cuadro al centro) o 'acciones' (menú de opciones).
+   * Si el formulario termina en [Cancelar][Guardar], esos botones pasan a la barra de arriba, como en iPhone.
+   */
   function modal(opciones) {
-    const { titulo, contenido, alCerrar, ancho } = opciones;
+    const { titulo, contenido, alCerrar, ancho, estilo } = opciones;
     const c = capa();
     const cuerpo = h('div', { class: 'hoja-cuerpo' }, contenido);
-    const hoja = h('div', { class: 'hoja' + (ancho ? ' hoja-completa' : ''), role: 'dialog', 'aria-modal': 'true', 'aria-label': titulo || 'Ventana' },
-      h('div', { class: 'hoja-asa' }),
-      titulo ? h('div', { class: 'hoja-cabeza' },
-        h('h2', null, titulo),
-        h('button', { type: 'button', class: 'btn-icono', 'aria-label': 'Cerrar', onclick: () => cerrar() }, icono('cerrar'))
-      ) : null,
-      cuerpo
-    );
-    const fondo = h('div', { class: 'hoja-fondo', onclick: (e) => { if (e.target === fondo) cerrar(); } }, hoja);
+    const izq = h('div', { class: 'hc-lado' });
+    const der = h('div', { class: 'hc-lado hc-der' });
+    const cabeza = estilo ? null : h('div', { class: 'hoja-cabeza' }, izq, h('h2', null, titulo || ''), der);
+    const hoja = h('div', {
+      class: 'hoja' + (ancho ? ' hoja-completa' : '') + (estilo ? ' estilo-' + estilo : ''),
+      role: estilo === 'alerta' ? 'alertdialog' : 'dialog', 'aria-modal': 'true', 'aria-label': titulo || 'Ventana'
+    }, estilo ? null : h('div', { class: 'hoja-asa' }), cabeza, cuerpo);
+    const fondo = h('div', { class: 'hoja-fondo' + (estilo ? ' fondo-' + estilo : ''), onclick: (e) => { if (e.target === fondo && estilo !== 'alerta') cerrar(); } }, hoja);
+
+    if (cabeza) {
+      const form = cuerpo.querySelector(':scope > form');
+      const fila = form && form.querySelector(':scope > .fila-botones:last-child');
+      const botones = fila ? [...fila.children] : [];
+      if (botones.length === 2 && botones[0].classList.contains('btn-secundario') && botones[1].type === 'submit') {
+        izq.appendChild(h('button', { type: 'button', class: 'btn-nav', onclick: () => cerrar() }, botones[0].textContent));
+        der.appendChild(h('button', { type: 'button', class: 'btn-nav fuerte', onclick: () => form.requestSubmit() }, botones[1].textContent));
+        fila.classList.add('solo-lector'); // sigue ahí para que Enter funcione, pero no se ve
+      } else if (form) {
+        izq.appendChild(h('button', { type: 'button', class: 'btn-nav', onclick: () => cerrar() }, 'Cancelar'));
+      } else {
+        der.appendChild(h('button', { type: 'button', class: 'btn-nav fuerte', onclick: () => cerrar() }, 'Listo'));
+      }
+    }
     c.appendChild(fondo);
     c.hidden = false;
     document.body.classList.add('con-modal');
@@ -200,12 +223,13 @@
     return new Promise((resolver) => {
       let respuesta = false;
       const m = modal({
+        estilo: 'alerta',
         titulo: opciones.titulo || '¿Seguro?',
         contenido: [
-          h('p', { class: 'texto-modal' }, mensaje),
-          h('div', { class: 'fila-botones' },
-            h('button', { type: 'button', class: 'btn btn-secundario', onclick: () => m.cerrar() }, opciones.textoNo || 'Cancelar'),
-            h('button', { type: 'button', class: 'btn ' + (opciones.peligro ? 'btn-peligro' : ''), onclick: () => { respuesta = true; m.cerrar(); } }, opciones.textoSi || 'Sí')
+          h('div', { class: 'alerta-texto' }, h('strong', null, opciones.titulo || '¿Seguro?'), h('p', null, mensaje)),
+          h('div', { class: 'alerta-botones' },
+            h('button', { type: 'button', onclick: () => m.cerrar() }, opciones.textoNo || 'Cancelar'),
+            h('button', { type: 'button', class: opciones.peligro ? 'peligro' : 'fuerte', onclick: () => { respuesta = true; m.cerrar(); } }, opciones.textoSi || 'Sí')
           )
         ],
         alCerrar: () => resolver(respuesta)
@@ -241,19 +265,79 @@
     });
   }
 
-  /** Menú de acciones: [{texto, icono, peligro, fn}] */
+  /** Menú de acciones estilo iOS: [{texto, peligro, fn}] */
   function acciones(titulo, lista) {
     const m = modal({
+      estilo: 'acciones',
       titulo,
-      contenido: h('div', { class: 'lista-acciones' },
-        lista.map((a) => h('button', {
-          type: 'button',
-          class: 'accion' + (a.peligro ? ' peligro' : ''),
-          onclick: () => { m.cerrar(); setTimeout(a.fn, 210); }
-        }, a.icono ? icono(a.icono) : null, a.texto))
-      )
+      contenido: [
+        h('div', { class: 'as-grupo' },
+          titulo ? h('p', { class: 'as-titulo' }, titulo) : null,
+          lista.map((a) => h('button', {
+            type: 'button',
+            class: 'as-accion' + (a.peligro ? ' peligro' : ''),
+            onclick: () => { m.cerrar(); setTimeout(a.fn, 210); }
+          }, a.texto))),
+        h('button', { type: 'button', class: 'as-accion as-cancelar', onclick: () => m.cerrar() }, 'Cancelar')
+      ]
     });
     return m;
+  }
+
+  /**
+   * Deslizar una fila hacia la izquierda para mostrar botones (como en Mail o Recordatorios).
+   * lista: [{texto, icono, clase: 'rojo'|'gris'|'verde'|'acento', fn}]. Devuelve el elemento a insertar.
+   */
+  let deslizAbierto = null;
+  function deslizable(fila, lista) {
+    const botones = h('div', { class: 'desliz-acciones' }, lista.map((a) => h('button', {
+      type: 'button', class: 'desliz-btn ' + (a.clase || 'gris'), tabindex: '-1',
+      onclick: (e) => { e.stopPropagation(); cerrarFila(); a.fn(); }
+    }, a.icono ? icono(a.icono) : null, h('span', null, a.texto))));
+    const envoltura = h('div', { class: 'desliz' }, botones, fila);
+    fila.classList.add('desliz-frente');
+    let x0 = 0, y0 = 0, dx = 0, base = 0, activo = false, decidido = false, puntero = null, movido = false;
+    const ancho = () => botones.offsetWidth;
+    const mover = (v, animar) => {
+      fila.style.transition = animar ? 'transform .28s cubic-bezier(.2,.8,.3,1)' : 'none';
+      fila.style.transform = v ? 'translateX(' + v + 'px)' : '';
+      if (v) envoltura.classList.add('deslizando');
+      else setTimeout(() => { if (!base) envoltura.classList.remove('deslizando'); }, animar ? 300 : 0);
+    };
+    function cerrarFila() { base = 0; mover(0, true); if (deslizAbierto === cerrarFila) deslizAbierto = null; }
+    fila.addEventListener('pointerdown', (e) => {
+      if (e.pointerType === 'mouse' && e.button !== 0) return;
+      x0 = e.clientX; y0 = e.clientY; dx = 0; activo = true; decidido = false; movido = false; puntero = e.pointerId;
+    });
+    fila.addEventListener('pointermove', (e) => {
+      if (!activo || e.pointerId !== puntero) return;
+      const mx = e.clientX - x0, my = e.clientY - y0;
+      if (!decidido) {
+        if (Math.abs(mx) < 8 && Math.abs(my) < 8) return;
+        decidido = true;
+        if (Math.abs(my) > Math.abs(mx)) { activo = false; return; } // es scroll vertical
+        try { fila.setPointerCapture(puntero); } catch (err) { /* nada */ }
+        if (deslizAbierto && deslizAbierto !== cerrarFila) deslizAbierto();
+      }
+      movido = true;
+      dx = mx;
+      mover(Math.min(0, Math.max(-ancho() - 40, base + dx)));
+    });
+    const soltar = () => {
+      if (!activo) return;
+      activo = false;
+      if (!movido) return;
+      if (base + dx < -ancho() / 2) { base = -ancho(); mover(base, true); deslizAbierto = cerrarFila; }
+      else cerrarFila();
+      setTimeout(() => { movido = false; }, 60);
+    };
+    fila.addEventListener('pointerup', soltar);
+    fila.addEventListener('pointercancel', soltar);
+    // Un toque con la fila abierta solo la cierra
+    fila.addEventListener('click', (e) => {
+      if (movido || base) { e.stopPropagation(); e.preventDefault(); if (!movido) cerrarFila(); }
+    }, true);
+    return envoltura;
   }
 
   /** Aviso breve abajo. opciones.deshacer = función opcional */
@@ -369,7 +453,7 @@
       h('div', { class: 'barra-relleno', style: { width: p + '%' } }));
   }
 
-  const UI = { h, icono, modal, confirmar, preguntar, acciones, aviso, pulsacionLarga, subpestanas, chips, vacio, cabecera, campo, campoDinero, barra };
+  const UI = { h, icono, modal, confirmar, preguntar, acciones, deslizable, aviso, pulsacionLarga, subpestanas, chips, vacio, cabecera, campo, campoDinero, barra };
 
   /* =================== Gráficos SVG =================== */
 
@@ -492,6 +576,7 @@
     const scroll = mismoModulo ? window.scrollY : 0;
     vista.replaceChildren(nueva);
     window.scrollTo(0, scroll);
+    prepararBarraNav(modulo, nueva);
     // Que la pestaña interna activa quede a la vista si no caben todas
     const activa = nueva.querySelector('.subpestana.activa');
     if (activa) {
@@ -503,6 +588,34 @@
   /** Vuelve a dibujar la pantalla actual (después de guardar algo) */
   function refrescar() { return mostrar(); }
 
+  /* =================== Barra de navegación (título grande que se achica) =================== */
+
+  let tituloGrande = null;
+  function prepararBarraNav(modulo, pantalla) {
+    const barra = document.getElementById('barra-nav');
+    tituloGrande = pantalla.querySelector('.cabecera h1, .inicio-saludo');
+    barra.querySelector('.bn-titulo').textContent = modulo.id === 'inicio' ? 'Mi Vida' : (tituloGrande ? tituloGrande.textContent : modulo.titulo);
+    const izq = barra.querySelector('.bn-izq');
+    izq.replaceChildren();
+    if (modulo.volver) {
+      izq.appendChild(h('a', { href: '#/' + modulo.volver.ruta, class: 'bn-volver' }, icono('atras'), modulo.volver.texto));
+    }
+    revisarBarraNav();
+  }
+  function revisarBarraNav() {
+    const barra = document.getElementById('barra-nav');
+    const limite = barra.getBoundingClientRect().bottom;
+    const compacta = !!(tituloGrande && tituloGrande.isConnected && tituloGrande.getBoundingClientRect().bottom < limite + 4);
+    document.body.classList.toggle('nav-compacta', compacta);
+    document.body.classList.toggle('nav-con-scroll', window.scrollY > 4);
+  }
+  let pendienteNav = false;
+  window.addEventListener('scroll', () => {
+    if (pendienteNav) return;
+    pendienteNav = true;
+    requestAnimationFrame(() => { pendienteNav = false; revisarBarraNav(); });
+  }, { passive: true });
+
   /* =================== Tema =================== */
 
   function aplicarTema(tema) {
@@ -510,7 +623,13 @@
     if (tema === 'claro' || tema === 'oscuro') raiz.dataset.tema = tema;
     else delete raiz.dataset.tema;
     const oscuro = tema === 'oscuro' || (tema !== 'claro' && matchMedia('(prefers-color-scheme: dark)').matches);
-    document.querySelectorAll('meta[name="theme-color"]').forEach((m) => m.setAttribute('content', oscuro ? '#16121C' : '#B5482F'));
+    document.querySelectorAll('meta[name="theme-color"]').forEach((m) => m.setAttribute('content', oscuro ? '#000000' : '#F2F2F7'));
+  }
+
+  /** Color principal de la app (azul, cobre, verde…) */
+  function aplicarAcento(acento) {
+    if (acento && acento !== 'azul') document.documentElement.dataset.acento = acento;
+    else delete document.documentElement.dataset.acento;
   }
 
   /* =================== Service worker y versión nueva =================== */
@@ -563,7 +682,8 @@
     Datos.pedirPersistencia();
   }
 
-  window.MV = { F, UI, G, registrar, ir, refrescar, ruta: () => rutaActual, aplicarTema, modulos };
+  window.MV = { F, UI, G, registrar, ir, refrescar, ruta: () => rutaActual, aplicarTema, aplicarAcento, modulos };
   aplicarTema(Datos.temaGuardado()); // cuanto antes, para que no parpadee el color
+  aplicarAcento(Datos.acentoGuardado());
   document.addEventListener('DOMContentLoaded', arrancar);
 })();

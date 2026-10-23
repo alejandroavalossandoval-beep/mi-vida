@@ -136,6 +136,15 @@
     return guardarAjuste('tema', tema);
   }
 
+  function acentoGuardado() {
+    try { return localStorage.getItem('mv-acento') || 'azul'; } catch (e) { return 'azul'; }
+  }
+
+  function guardarAcento(acento) {
+    try { localStorage.setItem('mv-acento', acento); } catch (e) { /* sin acceso, no pasa nada */ }
+    return guardarAjuste('acento', acento);
+  }
+
   /* ---------- Respaldo completo ---------- */
 
   function blobADataURL(blob) {
@@ -227,7 +236,7 @@
       tx.oncomplete = resolver;
       tx.onerror = () => rechazar(tx.error);
     });
-    try { localStorage.removeItem('mv-tema'); } catch (e) { /* nada */ }
+    try { localStorage.removeItem('mv-tema'); localStorage.removeItem('mv-acento'); } catch (e) { /* nada */ }
     COLECCIONES.forEach(avisarCambio);
   }
 
@@ -274,7 +283,7 @@
   window.Datos = {
     COLECCIONES, nuevoId,
     guardar, leer, listar, borrar, vaciar,
-    ajuste, guardarAjuste, temaGuardado, guardarTema,
+    ajuste, guardarAjuste, temaGuardado, guardarTema, acentoGuardado, guardarAcento,
     exportarTodo, importarTodo, borrarTodo,
     pedirPersistencia, espacioUsado, alCambiar, probar
   };

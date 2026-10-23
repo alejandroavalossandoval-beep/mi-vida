@@ -65,3 +65,10 @@ Los prompts paso a paso están en `prompts/`. Se ejecutan **en orden**, uno a la
 - Si se agrega un archivo nuevo de JS/CSS, sumarlo a la lista `ARCHIVOS` de `service-worker.js` para que funcione sin internet.
 - Herramientas compartidas en `js/app.js`: `MV.F` (formato Chile), `MV.UI` (ventanas, avisos, chips), `MV.G` (gráficos SVG). Cada módulo se registra con `MV.registrar({ id, titulo, render, resumen })`.
 - El Panel acepta eventos externos en la agenda vía `MV.extensionesAgenda` (pensado para el paso 08).
+
+**Diseño (v1.1.0, estilo iOS)**
+- Colores del sistema de Apple en variables CSS (`--sis-azul`, `--sis-verde`…); el color principal es `--primario` y se elige en Ajustes (`data-acento` en `<html>`).
+- Listas agrupadas: un contenedor `.lista` con filas `.item` (los separadores se dibujan solos). Para tarjetas sueltas usar `.lista-tarjetas`.
+- Ventanas: `UI.modal` pasa automáticamente los botones [Cancelar][Guardar] del formulario a la barra de arriba. `UI.confirmar` es una alerta centrada y `UI.acciones` un menú de acciones de iOS.
+- `UI.deslizable(fila, acciones)` permite deslizar una fila para ver botones (tareas, movimientos, pagos).
+- Título grande en cada pantalla (`.cabecera h1`): al hacer scroll aparece chico en la barra superior. `volver: { ruta, texto }` en un módulo muestra "‹ Atrás" arriba.
