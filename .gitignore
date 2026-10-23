@@ -1,0 +1,45 @@
+# Respaldos de datos personales (NUNCA subir)
+*respaldo*.json
+mi-vida-respaldo-*
+backup*.json
+datos/
+respaldos/
+
+# Fotos y documentos personales
+fotos/
+documentos/
+*.jpg
+*.jpeg
+*.heic
+*.heif
+*.webp
+*.pdf
+*.mp4
+*.mov
+
+# Claves y secretos
+.env
+.env.*
+*.key
+*.pem
+secretos*
+client_secret*.json
+
+# Archivos del sistema
+.DS_Store
+Thumbs.db
+desktop.ini
+ehthumbs.db
+$RECYCLE.BIN/
+*.lnk
+
+# Editores y temporales
+.vscode/
+.idea/
+*.swp
+*.tmp
+*.log
+node_modules/
+
+# Configuración local de Claude Code
+.claude/settings.local.json

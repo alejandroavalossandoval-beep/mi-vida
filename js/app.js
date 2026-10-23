@@ -1,0 +1,569 @@
+/*
+ * app.js — arranque, navegación y herramientas que comparten todos los módulos.
+ *   MV.F   → formato Chile (fechas dd-mm-aaaa, pesos $12.990, zona America/Santiago)
+ *   MV.UI  → piezas de interfaz (ventanas, avisos, confirmaciones, pestañas internas)
+ *   MV.G   → gráficos simples hechos a mano con SVG (sin librerías)
+ */
+(function () {
+  'use strict';
+
+  const ZONA = 'America/Santiago';
+  const DIAS = ['lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado', 'domingo'];
+  const DIAS_CORTOS = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
+  const MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+  const MESES_CORTOS = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+
+  /* =================== Formato y fechas =================== */
+
+  const fmtFecha = new Intl.DateTimeFormat('en-CA', { timeZone: ZONA, year: 'numeric', month: '2-digit', day: '2-digit' });
+  const fmtHora = new Intl.DateTimeFormat('es-CL', { timeZone: ZONA, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
+  const fmtNumero = new Intl.NumberFormat('es-CL', { maximumFractionDigits: 0 });
+
+  // Las fechas se guardan como texto 'aaaa-mm-dd' (ordenable) y se muestran como dd-mm-aaaa.
+  const F = {
+    DIAS, DIAS_CORTOS, MESES, MESES_CORTOS,
+    hoy() { return fmtFecha.format(new Date()); },
+    isoDeMarca(ms) { return fmtFecha.format(new Date(ms)); },
+    horaDeMarca(ms) { return fmtHora.format(new Date(ms)); },
+    ahoraMinutos() {
+      const [h, m] = fmtHora.format(new Date()).split(':').map(Number);
+      return h * 60 + m;
+    },
+    horaActual() { return Number(fmtHora.format(new Date()).split(':')[0]); },
+    aFecha(iso) { const [a, m, d] = iso.split('-').map(Number); return new Date(Date.UTC(a, m - 1, d)); },
+    deFecha(f) { return f.toISOString().slice(0, 10); },
+    sumarDias(iso, n) { const f = F.aFecha(iso); f.setUTCDate(f.getUTCDate() + n); return F.deFecha(f); },
+    diferencia(desde, hasta) { return Math.round((F.aFecha(hasta) - F.aFecha(desde)) / 86400000); },
+    // 1 = lunes … 7 = domingo
+    diaSemana(iso) { const d = F.aFecha(iso).getUTCDay(); return d === 0 ? 7 : d; },
+    inicioSemana(iso) { return F.sumarDias(iso, 1 - F.diaSemana(iso)); },
+    mostrar(iso) { if (!iso) return ''; const [a, m, d] = iso.split('-'); return d + '-' + m + '-' + a; },
+    larga(iso) {
+      const f = F.aFecha(iso);
+      return DIAS[F.diaSemana(iso) - 1] + ' ' + f.getUTCDate() + ' de ' + MESES[f.getUTCMonth()];
+    },
+    corta(iso) {
+      const f = F.aFecha(iso);
+      return DIAS_CORTOS[F.diaSemana(iso) - 1] + ' ' + f.getUTCDate() + ' ' + MESES_CORTOS[f.getUTCMonth()];
+    },
+    relativa(iso) {
+      const d = F.diferencia(F.hoy(), iso);
+      if (d === 0) return 'Hoy';
+      if (d === 1) return 'Mañana';
+      if (d === -1) return 'Ayer';
+      if (d > 1 && d < 7) return DIAS[F.diaSemana(iso) - 1].replace(/^./, (c) => c.toUpperCase());
+      return F.mostrar(iso);
+    },
+    mes(iso) { return iso.slice(0, 7); },
+    nombreMes(clave) { const [a, m] = clave.split('-').map(Number); return MESES[m - 1] + ' ' + a; },
+    nombreMesCorto(clave) { const m = Number(clave.split('-')[1]); return MESES_CORTOS[m - 1]; },
+    sumarMeses(clave, n) {
+      let [a, m] = clave.split('-').map(Number);
+      m += n;
+      while (m > 12) { m -= 12; a++; }
+      while (m < 1) { m += 12; a--; }
+      return a + '-' + String(m).padStart(2, '0');
+    },
+    diasDelMes(a, m) { return new Date(Date.UTC(a, m, 0)).getUTCDate(); },
+    // Fecha con día ajustado: el día 31 en febrero queda en el 28/29
+    fechaEnMes(clave, dia) {
+      const [a, m] = clave.split('-').map(Number);
+      const d = Math.min(dia, F.diasDelMes(a, m));
+      return clave + '-' + String(d).padStart(2, '0');
+    },
+    minutos(hhmm) { if (!hhmm) return 0; const [h, m] = hhmm.split(':').map(Number); return h * 60 + m; },
+    hhmm(min) { return String(Math.floor(min / 60)).padStart(2, '0') + ':' + String(min % 60).padStart(2, '0'); },
+    duracion(seg) {
+      const h = Math.floor(seg / 3600), m = Math.floor((seg % 3600) / 60);
+      return h ? h + ' h ' + m + ' min' : m + ' min';
+    },
+    reloj(seg) { seg = Math.max(0, Math.round(seg)); return Math.floor(seg / 60) + ':' + String(seg % 60).padStart(2, '0'); },
+
+    /* Dinero: pesos chilenos sin decimales */
+    numero(n) { return fmtNumero.format(Math.round(n || 0)); },
+    dinero(n) { n = Math.round(n || 0); return (n < 0 ? '−$' : '$') + fmtNumero.format(Math.abs(n)); },
+    leerMonto(texto) { const s = String(texto || '').replace(/\D/g, ''); return s ? Number(s) : 0; },
+    kg(n) { return String(Math.round(n * 10) / 10).replace('.', ',') + ' kg'; },
+    plural(n, uno, varios) { return n + ' ' + (n === 1 ? uno : varios); }
+  };
+
+  /* =================== Interfaz =================== */
+
+  // h('div', {class: 'x', onclick: fn}, 'texto', otroElemento)  → crea elementos de forma segura
+  function h(etiqueta, props, ...hijos) {
+    const el = document.createElement(etiqueta);
+    let valor;
+    if (props) {
+      for (const [k, v] of Object.entries(props)) {
+        if (v === undefined || v === null || v === false) continue;
+        if (k === 'value') valor = v;
+        else if (k === 'class') el.className = v;
+        else if (k === 'style' && typeof v === 'object') Object.assign(el.style, v);
+        else if (k.startsWith('on') && typeof v === 'function') el.addEventListener(k.slice(2), v);
+        else if (k === 'dataset') Object.assign(el.dataset, v);
+        else if (k in el && k !== 'list' && typeof v !== 'string') el[k] = v;
+        else el.setAttribute(k, v === true ? '' : v);
+      }
+    }
+    agregar(el, hijos);
+    if (valor !== undefined) el.value = valor; // después de los hijos, para que <select> encuentre su opción
+    return el;
+  }
+  function agregar(el, hijos) {
+    for (const hijo of hijos.flat(Infinity)) {
+      if (hijo === null || hijo === undefined || hijo === false) continue;
+      el.appendChild(hijo instanceof Node ? hijo : document.createTextNode(String(hijo)));
+    }
+  }
+
+  // Íconos SVG simples (trazos)
+  const ICONOS = {
+    mas: '<path d="M12 5v14M5 12h14"/>',
+    menos: '<path d="M5 12h14"/>',
+    engranaje: '<circle cx="12" cy="12" r="3.2"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>',
+    puntos: '<circle cx="5" cy="12" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="19" cy="12" r="1.3"/>',
+    atras: '<path d="M15 5l-7 7 7 7"/>',
+    adelante: '<path d="M9 5l7 7-7 7"/>',
+    cerrar: '<path d="M6 6l12 12M18 6L6 18"/>',
+    check: '<path d="M5 12.5l4.5 4.5L19 7.5"/>',
+    pin: '<path d="M9 4h6l-1 6 3 3H7l3-3zM12 13v7"/>',
+    buscar: '<circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.2-4.2"/>',
+    camara: '<path d="M4 8h3l2-2.5h6L17 8h3v11H4z"/><circle cx="12" cy="13" r="3.5"/>',
+    imagen: '<rect x="3.5" y="4.5" width="17" height="15" rx="2"/><circle cx="9" cy="10" r="1.8"/><path d="M20.5 16l-5-5-8 8.5"/>',
+    pdf: '<path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4"/>',
+    basura: '<path d="M4 7h16M9 7V4h6v3M6.5 7l1 13h9l1-13"/>',
+    lapiz: '<path d="M4 20l1-5L16 4l4 4L9 19z"/>',
+    play: '<path d="M7 4.5v15l12-7.5z"/>',
+    reloj: '<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>',
+    enlace: '<path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/>',
+    descargar: '<path d="M12 4v11M7 10.5l5 5 5-5M5 20h14"/>',
+    subir: '<path d="M12 16V5M7 9.5l5-5 5 5M5 20h14"/>'
+  };
+  function icono(nombre, clase) {
+    const span = document.createElement('span');
+    span.className = 'icono ' + (clase || '');
+    span.setAttribute('aria-hidden', 'true');
+    span.innerHTML = '<svg viewBox="0 0 24 24">' + (ICONOS[nombre] || '') + '</svg>';
+    return span;
+  }
+
+  const capa = () => document.getElementById('capa-modal');
+  const pilaModales = [];
+
+  /** Hoja inferior (bottom sheet). Devuelve { cerrar, cuerpo }. */
+  function modal(opciones) {
+    const { titulo, contenido, alCerrar, ancho } = opciones;
+    const c = capa();
+    const cuerpo = h('div', { class: 'hoja-cuerpo' }, contenido);
+    const hoja = h('div', { class: 'hoja' + (ancho ? ' hoja-completa' : ''), role: 'dialog', 'aria-modal': 'true', 'aria-label': titulo || 'Ventana' },
+      h('div', { class: 'hoja-asa' }),
+      titulo ? h('div', { class: 'hoja-cabeza' },
+        h('h2', null, titulo),
+        h('button', { type: 'button', class: 'btn-icono', 'aria-label': 'Cerrar', onclick: () => cerrar() }, icono('cerrar'))
+      ) : null,
+      cuerpo
+    );
+    const fondo = h('div', { class: 'hoja-fondo', onclick: (e) => { if (e.target === fondo) cerrar(); } }, hoja);
+    c.appendChild(fondo);
+    c.hidden = false;
+    document.body.classList.add('con-modal');
+    requestAnimationFrame(() => fondo.classList.add('abierta'));
+    let cerrada = false;
+    const registro = { cerrar, fondo };
+    pilaModales.push(registro);
+    function cerrar(valor) {
+      if (cerrada) return;
+      cerrada = true;
+      const i = pilaModales.indexOf(registro);
+      if (i >= 0) pilaModales.splice(i, 1);
+      fondo.classList.remove('abierta');
+      setTimeout(() => {
+        fondo.remove();
+        if (!c.children.length) { c.hidden = true; document.body.classList.remove('con-modal'); }
+      }, 200);
+      if (alCerrar) alCerrar(valor);
+    }
+    // Enfocar el primer campo, salvo en pantallas táctiles (para no abrir el teclado de golpe)
+    setTimeout(() => {
+      const campo = hoja.querySelector('[autofocus]');
+      if (campo) campo.focus();
+    }, 220);
+    return { cerrar, cuerpo, hoja };
+  }
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && pilaModales.length) pilaModales[pilaModales.length - 1].cerrar();
+  });
+
+  function confirmar(mensaje, opciones) {
+    opciones = opciones || {};
+    return new Promise((resolver) => {
+      let respuesta = false;
+      const m = modal({
+        titulo: opciones.titulo || '¿Seguro?',
+        contenido: [
+          h('p', { class: 'texto-modal' }, mensaje),
+          h('div', { class: 'fila-botones' },
+            h('button', { type: 'button', class: 'btn btn-secundario', onclick: () => m.cerrar() }, opciones.textoNo || 'Cancelar'),
+            h('button', { type: 'button', class: 'btn ' + (opciones.peligro ? 'btn-peligro' : ''), onclick: () => { respuesta = true; m.cerrar(); } }, opciones.textoSi || 'Sí')
+          )
+        ],
+        alCerrar: () => resolver(respuesta)
+      });
+    });
+  }
+
+  /** Pregunta un texto corto. Devuelve el texto o null. */
+  function preguntar(titulo, opciones) {
+    opciones = opciones || {};
+    return new Promise((resolver) => {
+      let respuesta = null;
+      const campo = h('input', { class: 'campo', type: opciones.tipo || 'text', value: opciones.valor || '', placeholder: opciones.placeholder || '', autofocus: true, inputmode: opciones.inputmode });
+      const enviar = (e) => {
+        e.preventDefault();
+        const v = campo.value.trim();
+        if (!v) { campo.focus(); return; }
+        respuesta = v;
+        m.cerrar();
+      };
+      const m = modal({
+        titulo,
+        contenido: h('form', { onsubmit: enviar },
+          opciones.ayuda ? h('p', { class: 'ayuda' }, opciones.ayuda) : null,
+          campo,
+          h('div', { class: 'fila-botones' },
+            h('button', { type: 'button', class: 'btn btn-secundario', onclick: () => m.cerrar() }, 'Cancelar'),
+            h('button', { type: 'submit', class: 'btn' }, opciones.textoSi || 'Guardar')
+          )
+        ),
+        alCerrar: () => resolver(respuesta)
+      });
+    });
+  }
+
+  /** Menú de acciones: [{texto, icono, peligro, fn}] */
+  function acciones(titulo, lista) {
+    const m = modal({
+      titulo,
+      contenido: h('div', { class: 'lista-acciones' },
+        lista.map((a) => h('button', {
+          type: 'button',
+          class: 'accion' + (a.peligro ? ' peligro' : ''),
+          onclick: () => { m.cerrar(); setTimeout(a.fn, 210); }
+        }, a.icono ? icono(a.icono) : null, a.texto))
+      )
+    });
+    return m;
+  }
+
+  /** Aviso breve abajo. opciones.deshacer = función opcional */
+  function aviso(texto, opciones) {
+    opciones = opciones || {};
+    const zona = document.getElementById('avisos');
+    const el = h('div', { class: 'aviso' + (opciones.tipo ? ' aviso-' + opciones.tipo : '') }, h('span', null, texto));
+    if (opciones.deshacer) {
+      el.appendChild(h('button', { type: 'button', class: 'aviso-btn', onclick: () => { opciones.deshacer(); quitar(); } }, 'Deshacer'));
+    }
+    zona.appendChild(el);
+    requestAnimationFrame(() => el.classList.add('visible'));
+    const t = setTimeout(quitar, opciones.duracion || 3500);
+    function quitar() {
+      clearTimeout(t);
+      el.classList.remove('visible');
+      setTimeout(() => el.remove(), 250);
+    }
+  }
+
+  /** Mantener apretado: llama fn tras 500 ms sin mover el dedo. */
+  function pulsacionLarga(el, fn) {
+    let t = null, x = 0, y = 0, disparada = false;
+    const cancelar = () => { clearTimeout(t); t = null; el.classList.remove('apretando'); };
+    el.addEventListener('pointerdown', (e) => {
+      if (e.button !== undefined && e.button !== 0) return;
+      disparada = false;
+      x = e.clientX; y = e.clientY;
+      el.classList.add('apretando');
+      t = setTimeout(() => {
+        disparada = true;
+        el.classList.remove('apretando');
+        if (navigator.vibrate) navigator.vibrate(15);
+        fn(e);
+      }, 500);
+    });
+    el.addEventListener('pointermove', (e) => { if (t && (Math.abs(e.clientX - x) > 10 || Math.abs(e.clientY - y) > 10)) cancelar(); });
+    el.addEventListener('pointerup', cancelar);
+    el.addEventListener('pointercancel', cancelar);
+    el.addEventListener('pointerleave', cancelar);
+    el.addEventListener('contextmenu', (e) => { e.preventDefault(); if (!disparada) { cancelar(); fn(e); } });
+    // Evita que el clic que sigue a la pulsación larga active otra cosa
+    el.addEventListener('click', (e) => { if (disparada) { e.stopPropagation(); e.preventDefault(); disparada = false; } }, true);
+  }
+
+  /** Pestañas internas de un módulo. */
+  function subpestanas(opciones, activa, alElegir) {
+    return h('div', { class: 'subpestanas', role: 'tablist' },
+      opciones.map((o) => h('button', {
+        type: 'button',
+        role: 'tab',
+        class: 'subpestana' + (o.id === activa ? ' activa' : ''),
+        'aria-selected': o.id === activa ? 'true' : 'false',
+        onclick: () => alElegir(o.id)
+      }, o.texto))
+    );
+  }
+
+  /** Grupo de "chips" para elegir una opción. */
+  function chips(opciones, activa, alElegir, clase) {
+    const cont = h('div', { class: 'chips ' + (clase || '') });
+    opciones.forEach((o) => {
+      const b = h('button', {
+        type: 'button',
+        class: 'chip' + (o.id === activa ? ' activo' : ''),
+        style: o.color ? { '--chip-color': o.color } : null,
+        onclick: () => {
+          cont.querySelectorAll('.chip').forEach((x) => x.classList.remove('activo'));
+          b.classList.add('activo');
+          alElegir(o.id);
+        }
+      }, o.texto);
+      cont.appendChild(b);
+    });
+    return cont;
+  }
+
+  function vacio(emoji, titulo, texto, boton) {
+    return h('div', { class: 'vacio' },
+      h('div', { class: 'vacio-emoji', 'aria-hidden': 'true' }, emoji),
+      h('p', { class: 'vacio-titulo' }, titulo),
+      texto ? h('p', { class: 'vacio-texto' }, texto) : null,
+      boton ? h('button', { type: 'button', class: 'btn', onclick: boton.fn }, boton.texto) : null
+    );
+  }
+
+  function cabecera(titulo, extra) {
+    return h('header', { class: 'cabecera' }, h('h1', null, titulo), extra || null);
+  }
+
+  /** Campo con etiqueta */
+  function campo(etiqueta, control, ayuda) {
+    return h('label', { class: 'grupo' }, h('span', { class: 'etiqueta' }, etiqueta), control, ayuda ? h('span', { class: 'ayuda' }, ayuda) : null);
+  }
+
+  /** Campo de dinero que se formatea solo mientras escribes: 12990 → 12.990 */
+  function campoDinero(valor, props) {
+    const input = h('input', Object.assign({ class: 'campo campo-dinero', type: 'text', inputmode: 'numeric', autocomplete: 'off', placeholder: '0' }, props || {}));
+    if (valor) input.value = F.numero(valor);
+    input.addEventListener('input', () => {
+      const n = F.leerMonto(input.value);
+      input.value = n ? F.numero(n) : '';
+    });
+    const envoltura = h('div', { class: 'envoltura-dinero' }, h('span', { class: 'signo-peso' }, '$'), input);
+    envoltura.leer = () => F.leerMonto(input.value);
+    envoltura.input = input;
+    return envoltura;
+  }
+
+  function barra(porcentaje, estado) {
+    const p = Math.max(0, Math.min(100, porcentaje));
+    return h('div', { class: 'barra ' + (estado || ''), role: 'progressbar', 'aria-valuenow': Math.round(porcentaje), 'aria-valuemin': 0, 'aria-valuemax': 100 },
+      h('div', { class: 'barra-relleno', style: { width: p + '%' } }));
+  }
+
+  const UI = { h, icono, modal, confirmar, preguntar, acciones, aviso, pulsacionLarga, subpestanas, chips, vacio, cabecera, campo, campoDinero, barra };
+
+  /* =================== Gráficos SVG =================== */
+
+  const NS = 'http://www.w3.org/2000/svg';
+  function s(etiqueta, attrs, ...hijos) {
+    const el = document.createElementNS(NS, etiqueta);
+    for (const [k, v] of Object.entries(attrs || {})) el.setAttribute(k, v);
+    hijos.flat().forEach((c) => { if (c != null) el.appendChild(c instanceof Node ? c : document.createTextNode(String(c))); });
+    return el;
+  }
+
+  const G = {
+    /** Barras horizontales: [{etiqueta, valor, color}] */
+    barrasH(items, formato) {
+      formato = formato || F.dinero;
+      const max = Math.max(1, ...items.map((i) => i.valor));
+      return h('div', { class: 'grafico-barrash' },
+        items.map((i) => h('div', { class: 'gb-fila' },
+          h('div', { class: 'gb-cabeza' }, h('span', null, i.etiqueta), h('strong', null, formato(i.valor))),
+          h('div', { class: 'gb-pista' }, h('div', { class: 'gb-barra', style: { width: (i.valor / max * 100) + '%', background: i.color || 'var(--primario)' } }))
+        ))
+      );
+    },
+
+    /** Columnas dobles por mes: [{etiqueta, a, b}] con leyenda */
+    columnas(items, nombres) {
+      const W = 320, H = 170, base = 140, alto = 120;
+      const max = Math.max(1, ...items.flatMap((i) => [i.a, i.b]));
+      const ancho = W / items.length;
+      const svg = s('svg', { viewBox: `0 0 ${W} ${H}`, class: 'grafico-svg', role: 'img', 'aria-label': 'Ingresos y gastos de los últimos meses' });
+      svg.appendChild(s('line', { x1: 0, y1: base, x2: W, y2: base, class: 'eje' }));
+      items.forEach((i, n) => {
+        const x = n * ancho + ancho / 2;
+        const bw = Math.min(16, ancho / 3);
+        const ha = i.a / max * alto, hb = i.b / max * alto;
+        svg.appendChild(s('rect', { x: x - bw - 1, y: base - ha, width: bw, height: Math.max(ha, 0.5), rx: 3, class: 'col-a' }, s('title', null, nombres[0] + ': ' + F.dinero(i.a))));
+        svg.appendChild(s('rect', { x: x + 1, y: base - hb, width: bw, height: Math.max(hb, 0.5), rx: 3, class: 'col-b' }, s('title', null, nombres[1] + ': ' + F.dinero(i.b))));
+        svg.appendChild(s('text', { x, y: base + 18, 'text-anchor': 'middle', class: 'etiqueta-eje' }, i.etiqueta));
+      });
+      return h('div', null,
+        svg,
+        h('div', { class: 'leyenda' },
+          h('span', null, h('i', { class: 'punto col-a' }), nombres[0]),
+          h('span', null, h('i', { class: 'punto col-b' }), nombres[1]))
+      );
+    },
+
+    /** Línea: [{etiqueta, valor}] */
+    linea(puntos, formato) {
+      formato = formato || ((v) => v);
+      const W = 320, H = 180, izq = 34, der = 12, arr = 16, abj = 30;
+      const valores = puntos.map((p) => p.valor);
+      let min = Math.min(...valores), max = Math.max(...valores);
+      if (min === max) { min = min - 5; max = max + 5; }
+      const margen = (max - min) * 0.15;
+      min = Math.max(0, min - margen); max = max + margen;
+      const x = (n) => izq + (puntos.length === 1 ? (W - izq - der) / 2 : n * (W - izq - der) / (puntos.length - 1));
+      const y = (v) => arr + (1 - (v - min) / (max - min)) * (H - arr - abj);
+      const svg = s('svg', { viewBox: `0 0 ${W} ${H}`, class: 'grafico-svg', role: 'img', 'aria-label': 'Progreso en el tiempo' });
+      [min, (min + max) / 2, max].forEach((v) => {
+        svg.appendChild(s('line', { x1: izq, x2: W - der, y1: y(v), y2: y(v), class: 'guia' }));
+        svg.appendChild(s('text', { x: izq - 6, y: y(v) + 4, 'text-anchor': 'end', class: 'etiqueta-eje' }, Math.round(v)));
+      });
+      const d = puntos.map((p, n) => (n ? 'L' : 'M') + x(n).toFixed(1) + ' ' + y(p.valor).toFixed(1)).join(' ');
+      svg.appendChild(s('path', { d, class: 'trazo' }));
+      const cada = Math.ceil(puntos.length / 6);
+      puntos.forEach((p, n) => {
+        svg.appendChild(s('circle', { cx: x(n), cy: y(p.valor), r: 4, class: 'nodo' }, s('title', null, p.etiqueta + ': ' + formato(p.valor))));
+        if (n % cada === 0 || n === puntos.length - 1) {
+          svg.appendChild(s('text', { x: x(n), y: H - 10, 'text-anchor': 'middle', class: 'etiqueta-eje' }, p.etiqueta));
+        }
+      });
+      return svg;
+    }
+  };
+
+  /* =================== Navegación =================== */
+
+  const modulos = {};
+  let rutaActual = null;
+  let cargando = 0;
+
+  function registrar(modulo) { modulos[modulo.id] = modulo; }
+
+  function leerRuta() {
+    const partes = (location.hash || '#/inicio').replace(/^#\/?/, '').split('/');
+    return { modulo: partes[0] || 'inicio', sub: partes[1] || null, extra: partes.slice(2) };
+  }
+
+  function ir(ruta, reemplazar) {
+    const destino = '#/' + ruta;
+    if (location.hash === destino) { mostrar(); return; }
+    if (reemplazar) { history.replaceState(null, '', destino); mostrar(); }
+    else location.hash = destino;
+  }
+
+  async function mostrar() {
+    const ruta = leerRuta();
+    const modulo = modulos[ruta.modulo] || modulos.inicio;
+    const vista = document.getElementById('vista');
+    const mismoModulo = rutaActual && rutaActual.modulo === modulo.id;
+    rutaActual = Object.assign({}, ruta, { modulo: modulo.id });
+
+    document.querySelectorAll('.pestana').forEach((p) => {
+      const activa = p.dataset.ruta === (modulo.pestana || modulo.id);
+      p.classList.toggle('activa', activa);
+      if (activa) p.setAttribute('aria-current', 'page'); else p.removeAttribute('aria-current');
+    });
+    document.title = modulo.id === 'inicio' ? 'Mi Vida' : modulo.titulo + ' · Mi Vida';
+
+    const turno = ++cargando;
+    const nueva = h('div', { class: 'pantalla' + (mismoModulo ? '' : ' entrando') });
+    try {
+      await modulo.render(nueva, ruta);
+    } catch (e) {
+      console.error(e);
+      nueva.replaceChildren(vacio('😵', 'Algo falló al abrir esta pantalla', e.message));
+    }
+    if (turno !== cargando) return; // llegó otra navegación mientras cargaba
+    const scroll = mismoModulo ? window.scrollY : 0;
+    vista.replaceChildren(nueva);
+    window.scrollTo(0, scroll);
+    // Que la pestaña interna activa quede a la vista si no caben todas
+    const activa = nueva.querySelector('.subpestana.activa');
+    if (activa) {
+      const barra = activa.parentElement;
+      barra.scrollLeft = activa.offsetLeft - (barra.clientWidth - activa.offsetWidth) / 2;
+    }
+  }
+
+  /** Vuelve a dibujar la pantalla actual (después de guardar algo) */
+  function refrescar() { return mostrar(); }
+
+  /* =================== Tema =================== */
+
+  function aplicarTema(tema) {
+    const raiz = document.documentElement;
+    if (tema === 'claro' || tema === 'oscuro') raiz.dataset.tema = tema;
+    else delete raiz.dataset.tema;
+    const oscuro = tema === 'oscuro' || (tema !== 'claro' && matchMedia('(prefers-color-scheme: dark)').matches);
+    document.querySelectorAll('meta[name="theme-color"]').forEach((m) => m.setAttribute('content', oscuro ? '#16121C' : '#B5482F'));
+  }
+
+  /* =================== Service worker y versión nueva =================== */
+
+  function registrarServiceWorker() {
+    if (!('serviceWorker' in navigator) || location.protocol === 'file:') return;
+    let recargando = false;
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (recargando) return;
+      recargando = true;
+      location.reload();
+    });
+    navigator.serviceWorker.register('service-worker.js').then((reg) => {
+      const ofrecer = (sw) => {
+        const aviso = document.getElementById('aviso-version');
+        aviso.hidden = false;
+        document.getElementById('btn-actualizar').onclick = () => {
+          aviso.hidden = true;
+          sw.postMessage({ tipo: 'ACTIVAR' });
+        };
+      };
+      if (reg.waiting && navigator.serviceWorker.controller) ofrecer(reg.waiting);
+      reg.addEventListener('updatefound', () => {
+        const nuevo = reg.installing;
+        if (!nuevo) return;
+        nuevo.addEventListener('statechange', () => {
+          if (nuevo.state === 'installed' && navigator.serviceWorker.controller) ofrecer(nuevo);
+        });
+      });
+      // Revisar si hay versión nueva al volver a la app
+      document.addEventListener('visibilitychange', () => { if (!document.hidden) reg.update().catch(() => {}); });
+    }).catch((e) => console.warn('No se pudo activar el modo sin internet:', e));
+  }
+
+  /* =================== Arranque =================== */
+
+  async function arrancar() {
+    aplicarTema(Datos.temaGuardado());
+    matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => aplicarTema(Datos.temaGuardado()));
+    try {
+      if (!(await Datos.ajuste('primerUso'))) await Datos.guardarAjuste('primerUso', Date.now());
+    } catch (e) {
+      document.getElementById('vista').replaceChildren(vacio('⚠️', 'No se pueden guardar datos en este navegador', e.message));
+      return;
+    }
+    window.addEventListener('hashchange', mostrar);
+    if (!location.hash) history.replaceState(null, '', '#/inicio');
+    await mostrar();
+    registrarServiceWorker();
+    Datos.pedirPersistencia();
+  }
+
+  window.MV = { F, UI, G, registrar, ir, refrescar, ruta: () => rutaActual, aplicarTema, modulos };
+  aplicarTema(Datos.temaGuardado()); // cuanto antes, para que no parpadee el color
+  document.addEventListener('DOMContentLoaded', arrancar);
+})();

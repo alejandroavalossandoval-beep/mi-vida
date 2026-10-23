@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="es-CL">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#B5482F" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#16121C" media="(prefers-color-scheme: dark)">
+  <meta name="color-scheme" content="light dark">
+  <meta name="description" content="Mi Vida: tareas, finanzas, entrenamiento y papeleo en un solo lugar.">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Mi Vida">
+  <title>Mi Vida</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" href="iconos/icono-192.png" type="image/png">
+  <link rel="apple-touch-icon" href="iconos/apple-touch-icon.png">
+  <link rel="stylesheet" href="css/estilos.css">
+</head>
+<body>
+  <div id="aviso-version" class="aviso-version" hidden>
+    <span>Hay una versión nueva</span>
+    <button type="button" id="btn-actualizar" class="btn btn-chico">Actualizar</button>
+  </div>
+
+  <main id="vista" class="vista" tabindex="-1"></main>
+
+  <nav class="pestanas" aria-label="Secciones">
+    <a href="#/inicio" data-ruta="inicio" class="pestana">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg>
+      <span>Inicio</span>
+    </a>
+    <a href="#/panel" data-ruta="panel" class="pestana">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="4.5" width="17" height="16" rx="2.5"/><path d="M3.5 9.5h17M8 2.5v4M16 2.5v4M8 14l2.5 2.5L16 12"/></svg>
+      <span>Panel</span>
+    </a>
+    <a href="#/finanzas" data-ruta="finanzas" class="pestana">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="6" width="19" height="13" rx="2.5"/><path d="M2.5 10.5h19M16.5 15h2"/></svg>
+      <span>Finanzas</span>
+    </a>
+    <a href="#/entrenador" data-ruta="entrenador" class="pestana">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.5 7v10M17.5 7v10M3.5 9.5v5M20.5 9.5v5M6.5 12h11"/></svg>
+      <span>Entrenador</span>
+    </a>
+    <a href="#/cerebro" data-ruta="cerebro" class="pestana">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3.5a3 3 0 0 0-3 3 3 3 0 0 0-2.5 4.5A3.2 3.2 0 0 0 5 17a3 3 0 0 0 4 3.3V3.5zM15 3.5a3 3 0 0 1 3 3 3 3 0 0 1 2.5 4.5A3.2 3.2 0 0 1 19 17a3 3 0 0 1-4 3.3V3.5z"/></svg>
+      <span>Cerebro</span>
+    </a>
+  </nav>
+
+  <div id="capa-modal" class="capa-modal" hidden></div>
+  <div id="avisos" class="avisos" aria-live="polite"></div>
+
+  <script src="js/datos.js"></script>
+  <script src="js/app.js"></script>
+  <script src="js/modulos/inicio.js"></script>
+  <script src="js/modulos/panel.js"></script>
+  <script src="js/modulos/finanzas.js"></script>
+  <script src="js/modulos/entrenador.js"></script>
+  <script src="js/modulos/cerebro.js"></script>
+  <script src="js/modulos/ajustes.js"></script>
+</body>
+</html>
